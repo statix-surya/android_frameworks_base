@@ -310,6 +310,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
     private final ConfigurationListener mConfigurationListener = new ConfigurationListener();
     private final SettingsChangeObserver mSettingsChangeObserver;
     private final ContentObserver mDoubleTapToSleepObserver;
+    private final ContentObserver mLockscreenDT2SObserver;
     private final StatusBarStateListener mStatusBarStateListener = new StatusBarStateListener();
     private final NotificationPanelView mView;
     private final VibratorHelper mVibratorHelper;
@@ -500,6 +501,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
     private final NavigationBarController mNavigationBarController;
     private final int mDisplayId;
     private boolean mDoubleTapToSleepEnabled;
+    private boolean mLockscreenDT2SEnabled;
     private GestureDetector mDoubleTapGesture;
 
     private final KeyguardIndicationController mKeyguardIndicationController;
@@ -941,6 +943,12 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
             @Override
             public void onChange(boolean selfChange) {
                 mDoubleTapToSleepEnabled = Settings.System.getInt(mContentResolver, Settings.System.DOUBLE_TAP_SLEEP_GESTURE, 0) != 0;
+            }
+        };
+        mLockscreenDT2SObserver = new ContentObserver(handler) {
+            @Override
+            public void onChange(boolean selfChange) {
+                mLockscreenDT2SEnabled = Settings.System.getInt(mContentResolver, Settings.System.DOUBLE_TAP_SLEEP_LOCKSCREEN, 0) != 0;
             }
         };
         mConversationNotificationManager = conversationNotificationManager;
@@ -4621,10 +4629,10 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
                 mStatusBarStateListener.onStateChanged(mStatusBarStateController.getState());
             }
             mConfigurationController.addCallback(mConfigurationListener);
-            mContentResolver.registerContentObserver(Settings.System.getUriFor(
-                    Settings.System.DOUBLE_TAP_SLEEP_GESTURE), false,
-                    mDoubleTapToSleepObserver);
+            mContentResolver.registerContentObserver(Settings.System.getUriFor(Settings.System.DOUBLE_TAP_SLEEP_GESTURE), false, mDoubleTapToSleepObserver);
+            mContentResolver.registerContentObserver(Settings.System.getUriFor(Settings.System.DOUBLE_TAP_SLEEP_LOCKSCREEN), false, mLockscreenDT2SObserver);
             mDoubleTapToSleepObserver.onChange(true);
+            mLockscreenDT2SObserver.onChange(true);
             // Theme might have changed between inflating this view and attaching it to the
             // window, so
             // force a call to onThemeChanged
@@ -4637,6 +4645,7 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
         @Override
         public void onViewDetachedFromWindow(View v) {
             mContentResolver.unregisterContentObserver(mDoubleTapToSleepObserver);
+            mContentResolver.unregisterContentObserver(mLockscreenDT2SObserver);
             mContentResolver.unregisterContentObserver(mSettingsChangeObserver);
             mFragmentService.getFragmentHostManager(mView)
                     .removeTagListener(QS.TAG, mQsController.getQsFragmentListener());
@@ -5027,7 +5036,8 @@ public final class NotificationPanelViewController implements ShadeSurface, Dump
                 return false;
             }
 
-            if (mDoubleTapToSleepEnabled && !mPulsing && !mDozing) {
+            if ((mLockscreenDT2SEnabled && !mPulsing && !mDozing && mBarState == StatusBarState.KEYGUARD) 
+                || (!mQsController.getExpanded() && mDoubleTapToSleepEnabled && event.getY() < mStatusBarHeaderHeightKeyguard)) {
                 mDoubleTapGesture.onTouchEvent(event);
             }
 

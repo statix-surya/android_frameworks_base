@@ -26,6 +26,7 @@ import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.plugins.FalsingManager
 import com.android.systemui.plugins.statusbar.StatusBarStateController
 import com.android.systemui.statusbar.StatusBarState
+import com.android.systemui.statusbar.phone.CentralSurfaces
 import javax.inject.Inject
 
 @SysUISingleton
@@ -34,19 +35,25 @@ class QQSGestureListener @Inject constructor(
         private val falsingManager: FalsingManager,
         private val powerManager: PowerManager,
         private val statusBarStateController: StatusBarStateController,
+        private val centralSurfaces: CentralSurfaces,
 ) : GestureDetector.SimpleOnGestureListener() {
 
     private var doubleTapToSleepEnabled = false
+    private var lockscreenDT2SEnabled = false
     private val quickQsOffsetHeight: Int
 
     init {
         val contentObserver = object : ContentObserver(null) {
             override fun onChange(selfChange: Boolean) {
                 doubleTapToSleepEnabled = Settings.System.getInt(context.contentResolver, Settings.System.DOUBLE_TAP_SLEEP_GESTURE, 0) != 0
+                lockscreenDT2SEnabled = Settings.System.getInt(context.contentResolver, Settings.System.DOUBLE_TAP_SLEEP_LOCKSCREEN, 0) != 0
             }
         }
         context.contentResolver.registerContentObserver(
                 Settings.System.getUriFor(Settings.System.DOUBLE_TAP_SLEEP_GESTURE),
+                false, contentObserver)
+        context.contentResolver.registerContentObserver(
+                Settings.System.getUriFor(Settings.System.DOUBLE_TAP_SLEEP_LOCKSCREEN),
                 false, contentObserver)
         contentObserver.onChange(true)
 
@@ -61,6 +68,13 @@ class QQSGestureListener @Inject constructor(
                 doubleTapToSleepEnabled &&
                 e.getY() < quickQsOffsetHeight &&
                 !falsingManager.isFalseDoubleTap
+        ) {
+            powerManager.goToSleep(e.getEventTime())
+            return true
+        } else if (!statusBarStateController.isDozing &&
+            lockscreenDT2SEnabled &&
+            statusBarStateController.getState() == StatusBarState.KEYGUARD &&
+            !centralSurfaces.isBouncerShowing()            
         ) {
             powerManager.goToSleep(e.getEventTime())
             return true
