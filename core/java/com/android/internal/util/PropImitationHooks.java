@@ -276,6 +276,10 @@ public class PropImitationHooks {
     }
 
     private static void setCertifiedPropsForGms() {
+        if (!SystemProperties.getBoolean(SPOOF_PIHOOKS_PI, true)) {
+            dlog("Spoofing Disabled in settings");
+            return;
+        }
         if (sCertifiedProps.length == 0) {
             dlog("Certified props are not set");
             return;
@@ -361,8 +365,6 @@ public class PropImitationHooks {
     }
 
     public static void onEngineGetCertificateChain() {
-        if (!SystemProperties.getBoolean(SPOOF_PIHOOKS_PI, true))
-            return;
         // Check stack for SafetyNet or Play Integrity
         if (isCallerSafetyNet() || sIsFinsky) {
             dlog("Blocked key attestation sIsGms=" + sIsGms + " sIsFinsky=" + sIsFinsky);
